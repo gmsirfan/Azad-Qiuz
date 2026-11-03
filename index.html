@@ -246,6 +246,13 @@ form { display: flex; flex-direction: column; gap: 14px; }
     <p class="notice" id="autoNote" hidden>Time ran out, so your answers were submitted automatically.</p>
     <div class="facts" id="resFacts"></div>
 
+    <div id="certBox" class="sheet" style="background:var(--bg)">
+      <h2>Your certificate</h2>
+      <img id="certImg" alt="Your participation certificate" hidden style="width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff">
+      <div class="row"><a class="btn" id="certLink" href="#" download="certificate.png" hidden>Download certificate</a></div>
+      <p class="muted" id="certNote" role="status"></p>
+    </div>
+
     <div id="sendBox" class="sheet" style="background:var(--bg)">
       <h2>Send your result to your teacher</h2>
       <p id="sendHelp"></p>
@@ -425,6 +432,67 @@ function resultCode(marks) {
   return h.toString(36).toUpperCase();
 }
 function fact(label, val) { var d = el("div", "fact"); d.appendChild(el("span", "label", label)); d.appendChild(el("b", null, val)); return d; }
+var certUrl = null;
+function wrapLines(ctx, text, maxW) {
+  var words = text.split(" "), lines = [], cur = "";
+  words.forEach(function (w) { var s = cur ? cur + " " + w : w; if (ctx.measureText(s).width > maxW && cur) { lines.push(cur); cur = w; } else cur = s; });
+  if (cur) lines.push(cur); return lines;
+}
+function drawCert(st, t, taken, code) {
+  var W = 1754, H = 1240, c = document.createElement("canvas"); c.width = W; c.height = H;
+  var x = c.getContext("2d");
+  var DISP = '"Bricolage Grotesque","Segoe UI",Arial,sans-serif', BODY = '"IBM Plex Sans",Arial,sans-serif', URDU = '"Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Noto Naskh Arabic",serif';
+  var NAVY = "#1b2f6b", SAFF = "#c2641b", INK = "#141c2e", MUTE = "#566075";
+  var loads = [];
+  try { loads = [document.fonts.load('700 60px "Bricolage Grotesque"'), document.fonts.load('500 30px "IBM Plex Sans"'), document.fonts.load('500 40px "Noto Nastaliq Urdu"')]; } catch (e) {}
+  return Promise.race([Promise.all(loads), new Promise(function (r) { setTimeout(r, 2500); })]).catch(function () {}).then(function () {
+    x.fillStyle = "#ffffff"; x.fillRect(0, 0, W, H);
+    x.strokeStyle = NAVY; x.lineWidth = 8; x.strokeRect(40, 40, W - 80, H - 80);
+    x.strokeStyle = SAFF; x.lineWidth = 2; x.strokeRect(66, 66, W - 132, H - 132);
+    x.textAlign = "center"; x.textBaseline = "alphabetic";
+    x.fillStyle = MUTE; x.font = "600 26px " + BODY; try { x.letterSpacing = "6px"; } catch (e) {}
+    x.fillText("NATIONAL EDUCATION DAY  \u00b7  11 NOVEMBER", W / 2, 150);
+    try { x.letterSpacing = "0px"; } catch (e) {}
+    x.fillStyle = NAVY; x.font = "500 52px " + URDU; x.direction = "rtl";
+    x.fillText("\u0645\u0648\u0644\u0627\u0646\u0627 \u0627\u0628\u0648\u0627\u0644\u06a9\u0644\u0627\u0645 \u0622\u0632\u0627\u062f", W / 2, 250); x.direction = "ltr";
+    x.fillStyle = NAVY; x.font = "700 96px " + DISP; x.fillText("Certificate of Participation", W / 2, 390);
+    x.fillStyle = SAFF; x.fillRect(W / 2 - 90, 424, 180, 5);
+    x.fillStyle = MUTE; x.font = "400 30px " + BODY; x.fillText("This is to certify that", W / 2, 490);
+    var size = 112, nm = st.name, maxW = W - 360;
+    for (; size > 52; size -= 4) { x.font = "700 " + size + "px " + DISP; if (x.measureText(nm).width <= maxW) break; }
+    x.fillStyle = INK; x.fillText(nm, W / 2, 610);
+    x.strokeStyle = NAVY; x.lineWidth = 2; x.beginPath(); x.moveTo(W / 2 - 520, 640); x.lineTo(W / 2 + 520, 640); x.stroke();
+    x.fillStyle = INK; x.font = "500 34px " + BODY;
+    var det = wrapLines(x, "Class " + st.klass + "  \u00b7  " + st.school + "  \u00b7  " + st.place, W - 360), y = 704;
+    det.slice(0, 2).forEach(function (l) { x.fillText(l, W / 2, y); y += 46; });
+    x.fillStyle = MUTE; x.font = "400 30px " + BODY;
+    wrapLines(x, "took part in the Maulana Abul Kalam Azad Quiz held on National Education Day.", W - 400).forEach(function (l) { x.fillText(l, W / 2, y + 30); y += 42; });
+    var by = Math.max(y + 50, 868);
+    x.fillStyle = "#eef1f8"; x.fillRect(W / 2 - 560, by, 1120, 150);
+    x.fillStyle = NAVY; x.font = "700 62px " + DISP; x.fillText("Score  " + fmt(t.marks) + " / 50", W / 2, by + 70);
+    x.fillStyle = MUTE; x.font = "500 27px " + BODY; x.fillText("Right " + t.right + "   \u00b7   Wrong " + t.wrong + "   \u00b7   Unattempted " + t.blank + "   \u00b7   Time " + taken, W / 2, by + 118);
+    var d = new Date(S.submittedAt), ds = d.getDate() + " " + ["January","February","March","April","May","June","July","August","September","October","November","December"][d.getMonth()] + " " + d.getFullYear();
+    x.fillStyle = INK; x.font = "500 28px " + BODY; x.textAlign = "left"; x.fillText("Date: " + ds, 150, 1110);
+    x.textAlign = "right"; x.fillText("Certificate ID: " + code, W - 150, 1110);
+    x.textAlign = "center"; x.fillStyle = MUTE; x.font = "400 24px " + BODY;
+    x.fillText("In honour of Maulana Abul Kalam Azad (1888\u20131958), India\u2019s first Education Minister", W / 2, 1160);
+    return c;
+  });
+}
+function makeCert(st, t, taken, code) {
+  var link = $("certLink"), img = $("certImg"), note = $("certNote");
+  link.hidden = true; img.hidden = true; note.textContent = "Preparing your certificate...";
+  drawCert(st, t, taken, code).then(function (c) {
+    c.toBlob(function (b) {
+      if (!b) { note.textContent = "Could not prepare the certificate on this device."; return; }
+      if (certUrl) URL.revokeObjectURL(certUrl);
+      certUrl = URL.createObjectURL(b);
+      img.src = certUrl; img.hidden = false;
+      link.href = certUrl; link.download = "Azad-Quiz-Certificate-" + (st.name.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "Student") + ".png"; link.hidden = false;
+      note.textContent = "If the download does not start, press and hold the certificate and choose Save image.";
+    }, "image/png");
+  }, function () { note.textContent = "Could not prepare the certificate on this device."; });
+}
 function showResults() {
   var n = S.ids.length, t = tally(), st = S.student;
   var taken = mmss(S.submittedAt - S.startAt);
@@ -441,6 +509,7 @@ function showResults() {
   var text = ["AZAD QUIZ RESULT", "Name: " + st.name, "Class: " + st.klass, "School: " + st.school, "Place: " + st.place, "Contact: " + st.contact,
     "Score: " + marks + " / " + n, "Right: " + t.right + "  Wrong: " + t.wrong + "  Unattempted: " + t.blank, "Time taken: " + taken, "Result code: " + code].join("\n");
   $("resultText").textContent = text;
+  makeCert(st, t, taken, code);
   var link = $("formLink"), help = $("sendHelp"), wa = $("waLink");
   if (CFG.form.url) {
     var q = [["name", st.name], ["klass", st.klass], ["school", st.school], ["place", st.place], ["contact", st.contact], ["score", marks], ["total", String(n)], ["time", taken], ["code", code]]
